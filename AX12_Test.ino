@@ -34,12 +34,12 @@
 #define     LR_TIBIA     11
 
 static const byte pgm_axdIDs[] PROGMEM = {
-          LF_COXA, LF_FEMUR, LF_TIBIA,    
-          LM_COXA, LM_FEMUR, LM_TIBIA,    
-          LR_COXA, LR_FEMUR, LR_TIBIA,
-          RF_COXA, RF_FEMUR, RF_TIBIA, 
-          RM_COXA, RM_FEMUR, RM_TIBIA,    
-          RR_COXA, RR_FEMUR, RR_TIBIA};    
+  LF_COXA, LF_FEMUR, LF_TIBIA,    
+  LM_COXA, LM_FEMUR, LM_TIBIA,    
+  LR_COXA, LR_FEMUR, LR_TIBIA,
+  RF_COXA, RF_FEMUR, RF_TIBIA, 
+  RM_COXA, RM_FEMUR, RM_TIBIA,    
+  RR_COXA, RR_FEMUR, RR_TIBIA};    
 
 
 // Global objects
@@ -83,7 +83,7 @@ void loop() {
 
   // lets toss any charcters that are in the input queue
   while(Serial.read() != -1) 
-      ;
+    ;
 
   Serial.println("0 - All Servos off");
   Serial.println("1 - All Servos center");
@@ -94,6 +94,7 @@ void loop() {
   Serial.println("6 - Timed 2: <Servo> <speed>");
   Serial.println("7 - Timed 3: <Servo> <Dist> <Time>");
   Serial.println("8 - Set ID: <old> <new>");
+  Serial.println("9 - Print Servo Values");
   Serial.print(":");
   Serial.flush();  // make sure the complete set of prompts has been output...  
   // Get a command
@@ -101,35 +102,38 @@ void loop() {
     Serial.println("");
     g_iszCmdLine = 1;  // skip over first byte...
     switch (g_aszCmdLine[0]) {
-      case '0':
-        AllServosOff();
-        break;
-       case '1':
-         AllServosCenter();
-         break;
-       case '2':
-         SetServoPosition();  
-         break;
-       case '3':
-         break;
-       case '4':
-         GetServoPositions();
-         break;
-       case '5':
-         TimedMove();
-         break;
-       case '6':
-         TimedMove2();
-         break;
-       case '7':
-         TimedMove3();
-         break;
-       case '8':
-         SetServoID();
-         break;
+    case '0':
+      AllServosOff();
+      break;
+    case '1':
+      AllServosCenter();
+      break;
+    case '2':
+      SetServoPosition();  
+      break;
+    case '3':
+      break;
+    case '4':
+      GetServoPositions();
+      break;
+    case '5':
+      TimedMove();
+      break;
+    case '6':
+      TimedMove2();
+      break;
+    case '7':
+      TimedMove3();
+      break;
+    case '8':
+      SetServoID();
+      break;
+      case '9':
+        PrintServoValues();
+      break;
     }
   }
-  
+
 }
 
 // Helper function to read in a command line
@@ -137,7 +141,7 @@ uint8_t GetCommandLine(void) {
   int ch;
   uint8_t ich = 0;
   g_iszCmdLine = 0;
-  
+
   for(;;) {
     // throw away any thing less than CR character...
     ch = Serial.read();
@@ -168,21 +172,21 @@ boolean FGetNextCmdNum(word *pw ) {
 
 //=======================================================================================
 void AllServosOff(void) {
-    for (int i = 0; i < 18; i++) {
-      ax12SetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_TORQUE_ENABLE, 0x0);
-      ax12ReadPacket(6);  // git the response...
-    }
+  for (int i = 0; i < 18; i++) {
+    ax12SetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_TORQUE_ENABLE, 0x0);
+    ax12ReadPacket(6);  // git the response...
+  }
 }
 //=======================================================================================
 void AllServosCenter(void) {
-    for (int i = 0; i < 18; i++) {
-      // See if this turns the motor off and I can turn it back on...
-      ax12SetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_TORQUE_ENABLE, 0x1);
-      ax12ReadPacket(6);  // git the response...
-      ax12SetRegister2(pgm_read_byte(&pgm_axdIDs[i]), AX_GOAL_POSITION_L, 0x1ff);
-      ax12ReadPacket(6);  // git the response...
-    }
-    
+  for (int i = 0; i < 18; i++) {
+    // See if this turns the motor off and I can turn it back on...
+    ax12SetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_TORQUE_ENABLE, 0x1);
+    ax12ReadPacket(6);  // git the response...
+    ax12SetRegister2(pgm_read_byte(&pgm_axdIDs[i]), AX_GOAL_POSITION_L, 0x1ff);
+    ax12ReadPacket(6);  // git the response...
+  }
+
 }
 
 
@@ -193,7 +197,7 @@ void SetServoPosition(void) {
 
   if (!FGetNextCmdNum(&w1))
     return;    // no parameters so bail.
-   
+
   Serial.println("Set Servo Position"); 
   if (FGetNextCmdNum(&w2)) {  // We have at least 2 parameters
     g_bServoID = w1;    // So first is which servo
@@ -205,9 +209,10 @@ void SetServoPosition(void) {
       Serial.print("Goal Speed: ");
       Serial.print(g_wServoGoalSpeed, DEC);
     }
-  } else 
+  } 
+  else 
     g_wServoGoalPos = w1;  // Only 1 paramter so assume it is the new position
-    
+
   // Now lets try moving that servo there   
   ax12SetRegister2(g_bServoID, AX_GOAL_POSITION_L, g_wServoGoalPos);
   ax12ReadPacket(6);  // git the response...
@@ -227,7 +232,7 @@ void SetServoID(void) {
 
   if (!FGetNextCmdNum(&w2))
     return;    // no parameters so bail.
-   
+
   Serial.print("Set Servo ID From: ");
   Serial.print(w1, DEC);
   Serial.print(" To: ");
@@ -241,10 +246,11 @@ void SetServoID(void) {
 
 void WaitForMoveToComplete(word wID) {
   do {
-//    delay(1);
-  } while (ax12GetRegister(wID, AX_MOVING, 1));
+    //    delay(1);
+  } 
+  while (ax12GetRegister(wID, AX_MOVING, 1));
 }
-  
+
 
 //=======================================================================================
 void TimedMove(void) {
@@ -255,7 +261,7 @@ void TimedMove(void) {
   word wCnt;
   unsigned long ulTimes[50];  
   byte iTimes;
-  
+
   if (!FGetNextCmdNum(&wID))
     return;
   if (!FGetNextCmdNum(&wFrom))
@@ -269,7 +275,7 @@ void TimedMove(void) {
 
   Serial.print("ID ");
   Serial.print(wID, DEC);
-  
+
   Serial.print(" ");
   Serial.print(wFrom, DEC);
   Serial.print("-");
@@ -278,7 +284,7 @@ void TimedMove(void) {
   Serial.print(wSpeed, DEC);
   Serial.print(" Cnt: ");
   Serial.println(wCnt, DEC);
-  
+
   // Print out some Compliance information...
   Serial.print("CW Margin: ");
   Serial.println(ax12GetRegister(wID, AX_CW_COMPLIANCE_MARGIN, 1), DEC);
@@ -288,7 +294,7 @@ void TimedMove(void) {
   Serial.println(ax12GetRegister(wID, AX_CCW_COMPLIANCE_MARGIN, 1), DEC);
   Serial.print("CCW Slope: ");
   Serial.println(ax12GetRegister(wID, AX_CCW_COMPLIANCE_SLOPE, 1), DEC);
-  
+
   // pretty dumb have to have all parameters to run
   ax12SetRegister2(wID, AX_GOAL_SPEED_L, wSpeed);  // First set the speed.
   ax12SetRegister2(wID, AX_GOAL_POSITION_L, wFrom);  // Move to the Start position.
@@ -324,10 +330,10 @@ void TimedMove(void) {
   // Units per ms = ((114*1024*360)/300))/(60*1000)
   Serial.println((((unsigned long)((ulServoDelta4/16)*(unsigned long)(iTimes-1))*3125L))/((unsigned long)(456L*(unsigned long)wSpeed)), DEC);
   // 
-  
+
 }
-    
-    
+
+
 //=======================================================================================
 void TimedMove2(void) {
   word wID;
@@ -341,7 +347,7 @@ void TimedMove2(void) {
   unsigned long ulTotalTimes[10];
   byte iTotals;  
   byte iTimes;
-  
+
   Serial.println("TimedMove 2");
   if (!FGetNextCmdNum(&wID))
     return;
@@ -351,7 +357,7 @@ void TimedMove2(void) {
 
   Serial.print("ID ");
   Serial.print(wID, DEC);
-  
+
   Serial.print(" Speed: ");
   Serial.println(wSpeed, DEC);
   // pretty dumb have to have all parameters to run
@@ -372,7 +378,7 @@ void TimedMove2(void) {
   Serial.print("Torque Limit: ");
   Serial.println(ax12GetRegister(wID, AX_TORQUE_LIMIT_L, 2), DEC);
   iTotals = 0;
-  
+
   for (;wSlope <= 256; wSlope <<= 1) {
     wFrom = 512 - wSlope/2;
     wTo = wFrom + wSlope;
@@ -382,7 +388,7 @@ void TimedMove2(void) {
     Serial.print("-");
     Serial.print(wTo, DEC);
     Serial.flush();  // Make sure everything has been written out...
-  
+
     ax12SetRegister2(wID, AX_GOAL_POSITION_L, wFrom);  // Move to the Start position.
     WaitForMoveToComplete(wID);
     delay(100);    // also give time to stabilize, so first move does not impact...
@@ -413,7 +419,7 @@ void TimedMove2(void) {
     Serial.println(ulTotalDists4[iTotals]/ulTotalTimes[iTotals], DEC);
     iTotals++;
   }
-  
+
   // Now lets print out some total dists and some speeds...
   for (byte i=1; i < iTotals; i++) {
     Serial.print("DDist: ");
@@ -452,10 +458,10 @@ void TimedMove3(void) {
   uint8_t i;
   word awCurPos[100];
   word awCurSpeed[100];
-  
+
   byte iTotals;  
   byte iTimes;
-  
+
   // <Servo> <Dist> <Time>");
   //speed value = (10000xRange(deg))/(6xTime(ms)).
   Serial.println("TimedMove 3");
@@ -471,7 +477,7 @@ void TimedMove3(void) {
   // now lets calculate a from/to and a guess on speed...
   Serial.print("ID ");
   Serial.print(wID, DEC);
-  
+
   Serial.print("Dist ");
   wFrom = 512 - wDist/2;
   wTo = wFrom + wDist;
@@ -480,7 +486,7 @@ void TimedMove3(void) {
   Serial.print(wTo, DEC);
   Serial.print("=");
   Serial.println(wDist, DEC);
-  
+
   // From Zenta - speed value = (10000xRange(deg))/(6xTime(ms)).
   // 500 ms @ 180 deg range = 600
   // Guess a speed - The movement in degrees is: dist/1024 * 300 so
@@ -510,29 +516,30 @@ void TimedMove3(void) {
     do {
       ax12SetRegister2(wID, AX_GOAL_POSITION_L, wTo);  // Move to the Start position.
       while (millis()-ulStart < 25) 
-          ;
+        ;
       ulStart = millis();    
       GetMultax12Registers(wID, AX_PRESENT_POSITION_L, 4, abT);
       awCurPos[iCur] = abT[0] + (abT[1] << 8);    // Get the current position and speed.
       awCurSpeed[iCur] = abT[2] + (abT[3] << 8);
-    } while (awCurSpeed[iCur++]) ;    // See if checking the speed will work ok...
+    } 
+    while (awCurSpeed[iCur++]) ;    // See if checking the speed will work ok...
     ulTimes[iTimes++] = millis();
-   
-   // Pass 1 only do for one direction.
-   for (i=0; i < iCur; i++) {
-    Serial.print(awCurPos[i], DEC);
-    Serial.print("=");
-    Serial.print(awCurSpeed[i],DEC);
-    if ((i % 10) == 9)
-      Serial.println("");
-    else
-      Serial.print(" ");
-   }  
-   Serial.println("");
-  Serial.flush();  // Make sure everything has been written out...
-  
-    
-    
+
+    // Pass 1 only do for one direction.
+    for (i=0; i < iCur; i++) {
+      Serial.print(awCurPos[i], DEC);
+      Serial.print("=");
+      Serial.print(awCurSpeed[i],DEC);
+      if ((i % 10) == 9)
+        Serial.println("");
+      else
+        Serial.print(" ");
+    }  
+    Serial.println("");
+    Serial.flush();  // Make sure everything has been written out...
+
+
+
     ax12SetRegister2(wID, AX_GOAL_POSITION_L, wFrom);  // Move to the Start position.
     WaitForMoveToComplete(wID);
     ulTimes[iTimes++] = millis();
@@ -547,60 +554,90 @@ void TimedMove3(void) {
   }
   Serial.println("");
 }
-    
-  
-  
+
+
+
 //=======================================================================================
 void GetServoPositions(void) {
 
-    unsigned long ulBefore;
-    unsigned long ulDelta;
-    bioloid.readPose();
-    int w;
-    for (int i = 0; i < 18; i++) {
-      Serial.print((byte)pgm_read_byte(&pgm_axdIDs[i]), DEC);
-      Serial.print(":");
-      ulBefore = micros();
+  unsigned long ulBefore;
+  unsigned long ulDelta;
+  bioloid.readPose();
+  int w;
+  for (int i = 0; i < 18; i++) {
+    Serial.print((byte)pgm_read_byte(&pgm_axdIDs[i]), DEC);
+    Serial.print(":");
+    ulBefore = micros();
+    w = ax12GetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_PRESENT_POSITION_L, 2 );
+    ulDelta = micros() - ulBefore;
+    Serial.print(w, DEC);
+    Serial.print(" ");
+    Serial.print(ulDelta, DEC);
+    Serial.print(" ");
+    Serial.println(ax12GetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_RETURN_DELAY_TIME, 1), DEC);
+
+    if (w == 0xffff) {
+      Serial.print("   Retry: ");
       w = ax12GetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_PRESENT_POSITION_L, 2 );
-      ulDelta = micros() - ulBefore;
-      Serial.print(w, DEC);
-      Serial.print(" ");
-      Serial.print(ulDelta, DEC);
-      Serial.print(" ");
-      Serial.println(ax12GetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_RETURN_DELAY_TIME, 1), DEC);
-      
-      if (w == 0xffff) {
-        Serial.print("   Retry: ");
-        w = ax12GetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_PRESENT_POSITION_L, 2 );
-        Serial.println(w, DEC);
-      }    
-      delay (100);
-    }
+      Serial.println(w, DEC);
+    }    
+    delay (100);
+  }
 }
+//=======================================================================================
+void PrintServoValues(void) {
+
+  word wID;
+  word w;
+  pinMode(A2, OUTPUT);
+  pinMode(A3, OUTPUT);
+  if (!FGetNextCmdNum(&wID))
+    return;
+  for (int i = 0; i < 50; i++) {
+    Serial.print(i, DEC);
+    Serial.print(":");
+    digitalWrite(A2, HIGH);
+    w = ax12GetRegister(wID, i, 1 );
+    digitalWrite(A2, LOW);
+    if (w == -1)
+      digitalWrite(A3, !digitalRead(A3));
+    Serial.print(w, HEX);
+    Serial.print(" ");
+    if ((i%10) == 9)
+      Serial.println("");
+    Serial.flush();  // try to avoid any interrupts while processing.
+    delay(5);
+  }    
+}
+//=======================================================================================
+
+
 //=======================================================================================
 boolean GetMultax12Registers(int id, int regstart, int length, uint8_t *pab){  
   uint8_t *pbT;  
   setTX(id);
-    // 0xFF 0xFF ID LENGTH INSTRUCTION PARAM... CHECKSUM    
-    int checksum = ~((id + 6 + regstart + length)%256);
-    ax12writeB(0xFF);
-    ax12writeB(0xFF);
-    ax12writeB(id);
-    ax12writeB(4);    // length
-    ax12writeB(AX_READ_DATA);
-    ax12writeB(regstart);
-    ax12writeB(length);
-    ax12writeB(checksum);  
-    setRX(id);    
-    // Should verify size of data actually read...
-    if(ax12ReadPacket(length + 6) > 0){
-      pbT = &ax_rx_buffer[5];
-      while (length--)
-        *pab++ = *pbT++;    // copy the data
-       return true;   
-    }
-    return false;
+  // 0xFF 0xFF ID LENGTH INSTRUCTION PARAM... CHECKSUM    
+  int checksum = ~((id + 6 + regstart + length)%256);
+  ax12writeB(0xFF);
+  ax12writeB(0xFF);
+  ax12writeB(id);
+  ax12writeB(4);    // length
+  ax12writeB(AX_READ_DATA);
+  ax12writeB(regstart);
+  ax12writeB(length);
+  ax12writeB(checksum);  
+  setRX(id);    
+  // Should verify size of data actually read...
+  if(ax12ReadPacket(length + 6) > 0){
+    pbT = &ax_rx_buffer[5];
+    while (length--)
+      *pab++ = *pbT++;    // copy the data
+    return true;   
+  }
+  return false;
 }
 
-  
+
+
+
 
