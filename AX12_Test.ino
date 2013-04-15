@@ -2,6 +2,9 @@
 // Kurts Test program to try out different ways to manipulate the AX12 servos on the PhantomX
 // This is a test, only a test...  
 //====================================================================================================
+// Uncomment the next line if building for a Quad instead of a Hexapod.
+//#define QUAD_MODE
+
 
 // Header files...
 #include <ax12.h>
@@ -35,11 +38,17 @@
 
 static const byte pgm_axdIDs[] PROGMEM = {
   LF_COXA, LF_FEMUR, LF_TIBIA,    
+#ifndef QUAD_MODE
   LM_COXA, LM_FEMUR, LM_TIBIA,    
+#endif  
   LR_COXA, LR_FEMUR, LR_TIBIA,
   RF_COXA, RF_FEMUR, RF_TIBIA, 
+#ifndef QUAD_MODE
   RM_COXA, RM_FEMUR, RM_TIBIA,    
+#endif
   RR_COXA, RR_FEMUR, RR_TIBIA};    
+
+#define NUM_SERVOS (sizeof(pgm_axdIDs)/sizeof(pgm_axdIDs[0]))
 
 
 // Global objects
@@ -61,7 +70,7 @@ word          g_wServoGoalSpeed;
 //====================================================================================================
 void setup() {
   Serial.begin(38400);  // start off the serial port.  
-  bioloid.poseSize = 18;
+  bioloid.poseSize = NUM_SERVOS;
 
   delay(1000);
   Serial.print("System Voltage in 10ths: ");
@@ -172,14 +181,14 @@ boolean FGetNextCmdNum(word *pw ) {
 
 //=======================================================================================
 void AllServosOff(void) {
-  for (int i = 0; i < 18; i++) {
+  for (int i = 0; i < NUM_SERVOS; i++) {
     ax12SetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_TORQUE_ENABLE, 0x0);
     ax12ReadPacket(6);  // git the response...
   }
 }
 //=======================================================================================
 void AllServosCenter(void) {
-  for (int i = 0; i < 18; i++) {
+  for (int i = 0; i < NUM_SERVOS; i++) {
     // See if this turns the motor off and I can turn it back on...
     ax12SetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_TORQUE_ENABLE, 0x1);
     ax12ReadPacket(6);  // git the response...
@@ -564,7 +573,7 @@ void GetServoPositions(void) {
   unsigned long ulDelta;
   bioloid.readPose();
   int w;
-  for (int i = 0; i < 18; i++) {
+  for (int i = 0; i < NUM_SERVOS; i++) {
     Serial.print((byte)pgm_read_byte(&pgm_axdIDs[i]), DEC);
     Serial.print(":");
     ulBefore = micros();
