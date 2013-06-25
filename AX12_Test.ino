@@ -248,7 +248,7 @@ void SetServoID(void) {
   Serial.println(w2, DEC);
 
   // Now lets try moving that servo there   
-  ax12SetRegister(g_bServoID, AX_ID, w2);
+  ax12SetRegister(w1, AX_ID, w2);
   ax12ReadPacket(6);  // git the response...
 }  
 
