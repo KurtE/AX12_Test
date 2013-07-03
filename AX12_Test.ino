@@ -3,7 +3,7 @@
 // This is a test, only a test...  
 //====================================================================================================
 // Uncomment the next line if building for a Quad instead of a Hexapod.
-//#define QUAD_MODE
+#define QUAD_MODE
 
 
 // Header files...
@@ -59,6 +59,7 @@ BioloidController bioloid = BioloidController(1000000);  // may use or not... ma
 word           g_wVoltage;
 char           g_aszCmdLine[80];
 uint8_t        g_iszCmdLine;
+boolean        g_fTrackServos = false;
 
 // Values to use for servo position...
 byte          g_bServoID;
@@ -99,11 +100,16 @@ void loop() {
   Serial.println("2 - Set Servo position [<Servo>] <Position> [<Speed>]");
   Serial.println("3 - Set Servo Angle");
   Serial.println("4 - Get Servo Positions");
+#if 0
   Serial.println("5 - Timed Move: <Servo> <From> <to> <speed> <cnt>");
   Serial.println("6 - Timed 2: <Servo> <speed>");
   Serial.println("7 - Timed 3: <Servo> <Dist> <Time>");
+#endif
   Serial.println("8 - Set ID: <old> <new>");
   Serial.println("9 - Print Servo Values");
+  Serial.println("t - Toggle track Servos");
+  Serial.println("h - hold [<sn>]");
+  Serial.println("f - free [<sn>]"); 
   Serial.print(":");
   Serial.flush();  // make sure the complete set of prompts has been output...  
   // Get a command
@@ -125,6 +131,7 @@ void loop() {
     case '4':
       GetServoPositions();
       break;
+#if 0
     case '5':
       TimedMove();
       break;
@@ -134,15 +141,34 @@ void loop() {
     case '7':
       TimedMove3();
       break;
+#endif
     case '8':
       SetServoID();
       break;
-      case '9':
-        PrintServoValues();
+    case '9':
+      PrintServoValues();
+      break;
+    case 'f':
+    case 'F':
+      HoldOrFreeServos(0);
+      break;
+    case 'h':
+    case 'H':
+      HoldOrFreeServos(1);
+      break;
+
+    case 't':
+    case 'T':
+      g_fTrackServos = !g_fTrackServos;
+      if (g_fTrackServos) {
+        Serial.println("Tracking On");
+        TrackServos(true);  // call to initialize all of the positions.
+      }
+      else
+        Serial.println("Tracking Off");
       break;
     }
   }
-
 }
 
 // Helper function to read in a command line
@@ -160,6 +186,9 @@ uint8_t GetCommandLine(void) {
     }    
     if (ch != -1) 
       g_aszCmdLine[ich++] = ch;
+
+    if (g_fTrackServos)
+      TrackServos(false);
   }
 }
 
@@ -195,9 +224,25 @@ void AllServosCenter(void) {
     ax12SetRegister2(pgm_read_byte(&pgm_axdIDs[i]), AX_GOAL_POSITION_L, 0x1ff);
     ax12ReadPacket(6);  // git the response...
   }
+}
+//=======================================================================================
+void HoldOrFreeServos(byte fHold) {
+  word iServo;
 
+  if (!FGetNextCmdNum(&iServo)) {
+    // All servos...
+    for (int i = 0; i < NUM_SERVOS; i++) {
+      ax12SetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_TORQUE_ENABLE, fHold);
+      ax12ReadPacket(6);  // git the response...
+    }
+  } 
+  else {
+    ax12SetRegister(iServo, AX_TORQUE_ENABLE, fHold);
+    ax12ReadPacket(6);  // git the response...
+  }
 }
 
+//=======================================================================================
 
 //=======================================================================================
 void SetServoPosition(void) {
@@ -260,7 +305,7 @@ void WaitForMoveToComplete(word wID) {
   while (ax12GetRegister(wID, AX_MOVING, 1));
 }
 
-
+#if 0
 //=======================================================================================
 void TimedMove(void) {
   word wID;
@@ -563,7 +608,7 @@ void TimedMove3(void) {
   }
   Serial.println("");
 }
-
+#endif
 
 
 //=======================================================================================
@@ -593,6 +638,34 @@ void GetServoPositions(void) {
     delay (100);
   }
 }
+//=======================================================================================
+int g_asPositionsPrev[NUM_SERVOS];
+
+void TrackServos(boolean fInit) {
+
+  bioloid.readPose();
+  int w;
+  bool fSomethingChanged = false;
+  for (int i = 0; i < NUM_SERVOS; i++) {
+    w = ax12GetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_PRESENT_POSITION_L, 2 );
+    if (w != g_asPositionsPrev[i]) {
+      g_asPositionsPrev[i] = w;
+      if (!fInit) {
+        Serial.print((byte)pgm_read_byte(&pgm_axdIDs[i]), DEC);
+        Serial.print(":");
+        Serial.print(w, DEC);
+        Serial.print("(");
+        Serial.print((((long)(w-512))*375L)/128L, DEC);
+        Serial.print(") ");
+        fSomethingChanged = true;
+      }
+    }
+  }
+  if (fSomethingChanged)
+    Serial.println("");
+}
+
+
 //=======================================================================================
 void PrintServoValues(void) {
 
@@ -645,6 +718,11 @@ boolean GetMultax12Registers(int id, int regstart, int length, uint8_t *pab){
   }
   return false;
 }
+
+
+
+
+
 
 
 
