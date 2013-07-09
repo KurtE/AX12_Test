@@ -3,7 +3,7 @@
 // This is a test, only a test...  
 //====================================================================================================
 // Uncomment the next line if building for a Quad instead of a Hexapod.
-#define QUAD_MODE
+//#define QUAD_MODE
 
 
 // Header files...
@@ -166,6 +166,7 @@ void loop() {
       }
       else
         Serial.println("Tracking Off");
+      TrackPrintMinsMaxs();
       break;
     }
   }
@@ -640,6 +641,8 @@ void GetServoPositions(void) {
 }
 //=======================================================================================
 int g_asPositionsPrev[NUM_SERVOS];
+int g_asMins[NUM_SERVOS];
+int g_asMaxs[NUM_SERVOS];
 
 void TrackServos(boolean fInit) {
 
@@ -648,6 +651,10 @@ void TrackServos(boolean fInit) {
   bool fSomethingChanged = false;
   for (int i = 0; i < NUM_SERVOS; i++) {
     w = ax12GetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_PRESENT_POSITION_L, 2 );
+    if (fInit) {
+      g_asMins[i] = w;
+      g_asMaxs[i] = w;
+    }
     if (w != g_asPositionsPrev[i]) {
       g_asPositionsPrev[i] = w;
       if (!fInit) {
@@ -659,10 +666,31 @@ void TrackServos(boolean fInit) {
         Serial.print(") ");
         fSomethingChanged = true;
       }
-    }
+      if (g_asMins[i] > w)
+        g_asMins[i] = w;
+
+      if (g_asMaxs[i] < w)
+        g_asMaxs[i] = w;
+    }  
   }
   if (fSomethingChanged)
     Serial.println("");
+}
+
+void TrackPrintMinsMaxs(void) {
+  for (int i = 0; i < NUM_SERVOS; i++) {
+    Serial.print((byte)pgm_read_byte(&pgm_axdIDs[i]), DEC);
+    Serial.print(":");
+    Serial.print(g_asMins[i], DEC);
+    Serial.print("(");
+    Serial.print((((long)(g_asMins[i]-512))*375L)/128L, DEC);
+    Serial.print(") ");
+
+    Serial.print(g_asMaxs[i], DEC);
+    Serial.print("(");
+    Serial.print((((long)(g_asMaxs[i]-512))*375L)/128L, DEC);
+    Serial.println(")");
+  }
 }
 
 
@@ -718,6 +746,8 @@ boolean GetMultax12Registers(int id, int regstart, int length, uint8_t *pab){
   }
   return false;
 }
+
+
 
 
 
