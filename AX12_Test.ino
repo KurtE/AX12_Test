@@ -4,7 +4,7 @@
 //====================================================================================================
 // Uncomment the next line if building for a Quad instead of a Hexapod.
 //#define QUAD_MODE
-
+#define TURRET
 
 // Header files...
 #include <ax12.h>
@@ -36,6 +36,11 @@
 #define     LR_FEMUR      9
 #define     LR_TIBIA     11
 
+#ifdef TURRET
+#define     TURRET_ROT    20
+#define     TURRET_TILT   21
+#endif
+
 static const byte pgm_axdIDs[] PROGMEM = {
   LF_COXA, LF_FEMUR, LF_TIBIA,    
 #ifndef QUAD_MODE
@@ -46,10 +51,28 @@ static const byte pgm_axdIDs[] PROGMEM = {
 #ifndef QUAD_MODE
   RM_COXA, RM_FEMUR, RM_TIBIA,    
 #endif
-  RR_COXA, RR_FEMUR, RR_TIBIA};    
+  RR_COXA, RR_FEMUR, RR_TIBIA
+#ifdef TURRET
+  , TURRET_ROT, TURRET_TILT
+#endif
+};    
 
 #define NUM_SERVOS (sizeof(pgm_axdIDs)/sizeof(pgm_axdIDs[0]))
-
+const char* IKPinsNames[] = {
+  "LFC","LFF","LFT",
+#ifndef QUAD_MODE
+  "LMC","LMF","LMT",
+#endif  
+  "LRC","LRF","LRT",
+  "RFC","RFF","RFT",
+#ifndef QUAD_MODE
+  "RMC","RMF","RMT",
+#endif  
+  "RRC","RRF","RRT",
+#ifdef TURRET
+  "T-ROT", "T-TILT"
+#endif
+};
 
 // Global objects
 /* IK Engine */
@@ -76,6 +99,9 @@ void setup() {
   delay(1000);
   Serial.print("System Voltage in 10ths: ");
   Serial.println(g_wVoltage = ax12GetRegister(1, AX_PRESENT_VOLTAGE, 1), DEC);
+  
+  pinMode(7, OUTPUT);
+  digitalWrite(7, HIGH);
 }
 
 
@@ -656,16 +682,21 @@ void TrackServos(boolean fInit) {
       g_asMaxs[i] = w;
     }
     if (w != g_asPositionsPrev[i]) {
-      g_asPositionsPrev[i] = w;
       if (!fInit) {
-        Serial.print((byte)pgm_read_byte(&pgm_axdIDs[i]), DEC);
-        Serial.print(":");
-        Serial.print(w, DEC);
-        Serial.print("(");
-        Serial.print((((long)(w-512))*375L)/128L, DEC);
-        Serial.print(") ");
-        fSomethingChanged = true;
+        // only print if we moved more than some delta...
+        if (abs(w-g_asPositionsPrev[i]) > 3) {
+          Serial.print(IKPinsNames[i]);
+          Serial.print("(");
+          Serial.print((byte)pgm_read_byte(&pgm_axdIDs[i]), DEC);
+          Serial.print("):");
+          Serial.print(w, DEC);
+          Serial.print("(");
+          Serial.print((((long)(w-512))*375L)/128L, DEC);
+          Serial.print(") ");
+          fSomethingChanged = true;
+        }
       }
+      g_asPositionsPrev[i] = w;
       if (g_asMins[i] > w)
         g_asMins[i] = w;
 
@@ -674,7 +705,7 @@ void TrackServos(boolean fInit) {
     }  
   }
   if (fSomethingChanged)
-    Serial.println("");
+    Serial.println();
 }
 
 void TrackPrintMinsMaxs(void) {
@@ -746,6 +777,7 @@ boolean GetMultax12Registers(int id, int regstart, int length, uint8_t *pab){
   }
   return false;
 }
+
 
 
 
