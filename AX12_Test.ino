@@ -1,21 +1,40 @@
 
-#define USE_BIOLOIDSERIAL 1
-#if USE_BIOLOIDSERIAL
-#include <ax12Serial.h>
-#include <BioloidSerial.h>
-#endif
 //#define INCLUDE_TIMED_TESTS
 //====================================================================================================
 // Kurts Test program to try out different ways to manipulate the AX12 servos on the PhantomX
 // This is a test, only a test...  
 //====================================================================================================
+//============================================================================
+// Global Include files
+//=============================================================================
+
+#include <ax12Serial.h>
+#include <BioloidSerial.h>
+
+//=============================================================================
+// Options...
+//=============================================================================
+
 // Uncomment the next line if building for a Quad instead of a Hexapod.
 //#define QUAD_MODE
 //#define TURRET
 
-// Header files...
-//#include <ax12.h>
-//#include <BioloidController.h>
+//V0.2
+//#define SERVO_DIRECTION_PIN -1
+//#define SERVO_POWER_ENABLE_PIN 2
+
+
+// V0.3
+//#define SERVO_DIRECTION_PIN 2
+//#define SERVO_POWER_ENABLE_PIN 3
+
+#define AX_BUS_UART Serial1
+#define VOLTAGE_ANALOG_PIN 0
+#define SERVO1_SPECIAL  19     // We wish to reserve servo 1 so we can see servo reset
+
+//=============================================================================
+// Define differnt robots..
+//=============================================================================
 
 // Constants
 /* Servo IDs */
@@ -31,7 +50,11 @@
 #define     RR_FEMUR     10
 #define     RR_TIBIA     12
 
+#ifdef SERVO1_SPECIAL
+#define     LF_COXA       19
+#else
 #define     LF_COXA       1
+#endif
 #define     LF_FEMUR      3
 #define     LF_TIBIA      5
 
@@ -64,7 +87,7 @@ static const byte pgm_axdIDs[] PROGMEM = {
 #endif
 };    
 
-#define NUM_SERVOS (sizeof(pgm_axdIDs)/sizeof(pgm_axdIDs[0]))
+#define NUM_SERVOS ((int)(sizeof(pgm_axdIDs)/sizeof(pgm_axdIDs[0])))
 const char* IKPinsNames[] = {
   "LFC","LFF","LFT",
 #ifndef QUAD_MODE
@@ -80,15 +103,13 @@ const char* IKPinsNames[] = {
   "T-ROT", "T-TILT"
 #endif
 };
-
+//=============================================================================
+// Globals
+//=============================================================================
 // Global objects
 /* IK Engine */
-#ifdef USE_BIOLOIDSERIAL
 BioloidControllerEx bioloid = BioloidControllerEx(); 
-#else
-BioloidController bioloid = BioloidController(1000000);  // may use or not... may go direct to AX12
-#endif
-// other globals.
+//BioloidController bioloid = BioloidController(1000000);  // may use or not... may go direct to AX12// other globals.
 word           g_wVoltage;
 char           g_aszCmdLine[80];
 uint8_t        g_iszCmdLine;
@@ -99,23 +120,38 @@ byte          g_bServoID;
 word          g_wServoGoalPos;
 word          g_wServoGoalSpeed;
 
+#ifndef SERVO_DIRECTION_PIN
+#define SERVO_DIRECTION_PIN -1
+#endif
+
 //====================================================================================================
 // Setup 
 //====================================================================================================
 void setup() {
   Serial.begin(38400);  // start off the serial port.  
 
-#ifdef USE_BIOLOIDSERIAL
-  bioloid.begin(1000000, &Serial3);
-#endif
+  delay(250);
+  pinMode(4, OUTPUT);
+  pinMode(1, OUTPUT);
+  digitalWrite(1, OUTPUT);
+  delay(250);
+
+  bioloid.begin(1000000, &AX_BUS_UART, SERVO_DIRECTION_PIN);
   bioloid.poseSize = NUM_SERVOS;
 
+#ifdef SERVO_POWER_ENABLE_PIN
+  pinMode(SERVO_POWER_ENABLE_PIN, OUTPUT);
+  digitalWrite(SERVO_POWER_ENABLE_PIN, HIGH);
+#endif  
   delay(1000);
   Serial.print("System Voltage in 10ths: ");
-  Serial.println(g_wVoltage = ax12GetRegister(1, AX_PRESENT_VOLTAGE, 1), DEC);
+  Serial.println(g_wVoltage = ax12GetRegister(LF_COXA, AX_PRESENT_VOLTAGE, 1), DEC);
+
+  pinMode(A1, OUTPUT);
+  digitalWrite(A1, HIGH);
   
-  pinMode(7, OUTPUT);
-  digitalWrite(7, HIGH);
+  pinMode(6, OUTPUT);
+  digitalWrite(6, HIGH);
 }
 
 
@@ -124,7 +160,7 @@ void setup() {
 //====================================================================================================
 void loop() {
   // Output a prompt
-  word wNewVoltage = ax12GetRegister(1, AX_PRESENT_VOLTAGE, 1);
+  word wNewVoltage = ax12GetRegister(LF_COXA, AX_PRESENT_VOLTAGE, 1);
   if (wNewVoltage != g_wVoltage) {
     g_wVoltage = wNewVoltage;
     Serial.print("System Voltage in 10ths: ");
@@ -404,8 +440,6 @@ void GetServoPositions(void) {
 //=======================================================================================
 void FindServos(void) {
 
-  unsigned long ulBefore;
-  unsigned long ulDelta;
   bioloid.readPose();
   int w;
   Serial.println("Begin: ");
@@ -495,7 +529,7 @@ void PrintServoValues(void) {
     digitalWrite(A2, HIGH);
     w = ax12GetRegister(wID, i, 1 );
     digitalWrite(A2, LOW);
-    if (w == -1)
+    if (w == (word)-1)
       digitalWrite(A3, !digitalRead(A3));
     Serial.print(w, HEX);
     Serial.print(" ");
