@@ -25,6 +25,10 @@ There is a #define at the start of the program: #define QUAD_MODE
 that I most often have commented out.  When it is defined it only talks to the servos that are defined for the standard
 PhantomX quad, otherwise it will try to input and output to the standard 18 servos of the hexapod.
 
+This program also may rely on my modified version of the Bioloid library that I call BioloidSerial.  This library was setup to be able to be used with Arduino(ish) boards that have more hardware Uarts like the Teensy 3.x by PJRC.  You can pass in which Hardware Serial object to use.  
+
+This library is found up at: https://github.com/KurtE/BioloidSerial
+
 Commands
 ========
 
