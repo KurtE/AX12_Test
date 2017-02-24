@@ -18,6 +18,7 @@
 // Uncomment the next line if building for a Quad instead of a Hexapod.
 //#define QUAD_MODE
 //#define TURRET
+//#define DEBUG_IO_PINS
 
 //V0.2
 //#define SERVO_DIRECTION_PIN -1
@@ -29,7 +30,8 @@
 //#define SERVO_POWER_ENABLE_PIN 3
 
 #define AX_BUS_UART Serial1
-#define VOLTAGE_ANALOG_PIN 0
+//#define VOLTAGE_ANALOG_PIN 0
+#define SOUND_PIN 1
 #define SERVO1_SPECIAL  19     // We wish to reserve servo 1 so we can see servo reset
 
 //=============================================================================
@@ -128,12 +130,18 @@ word          g_wServoGoalSpeed;
 // Setup 
 //====================================================================================================
 void setup() {
+  while (!Serial && (millis() < 3000)) ;  // Give time for Teensy and other USB arduinos to create serial port
   Serial.begin(38400);  // start off the serial port.  
 
   delay(250);
+#ifdef SOUND_PIN
+  pinMode(SOUND_PIN, OUTPUT);
+  digitalWrite(SOUND_PIN, LOW);
+#endif
+  
+#ifdef DEBUG_IO_PINS
   pinMode(4, OUTPUT);
-  pinMode(1, OUTPUT);
-  digitalWrite(1, OUTPUT);
+#endif
   delay(250);
 
   bioloid.begin(1000000, &AX_BUS_UART, SERVO_DIRECTION_PIN);
@@ -147,11 +155,15 @@ void setup() {
   Serial.print("System Voltage in 10ths: ");
   Serial.println(g_wVoltage = ax12GetRegister(LF_COXA, AX_PRESENT_VOLTAGE, 1), DEC);
 
+#ifdef DEBUG_IO_PINS
   pinMode(A1, OUTPUT);
   digitalWrite(A1, HIGH);
-  
+
+  // This probably should be simply the SERVO_POWER_ENABLE_PIN
   pinMode(6, OUTPUT);
   digitalWrite(6, HIGH);
+#endif
+  
 }
 
 
@@ -526,11 +538,15 @@ void PrintServoValues(void) {
   for (int i = 0; i < 50; i++) {
     Serial.print(i, DEC);
     Serial.print(":");
+#ifdef DEBUG_IO_PINS
     digitalWrite(A2, HIGH);
+#endif
     w = ax12GetRegister(wID, i, 1 );
+#ifdef DEBUG_IO_PINS
     digitalWrite(A2, LOW);
     if (w == (word)-1)
       digitalWrite(A3, !digitalRead(A3));
+#endif
     Serial.print(w, HEX);
     Serial.print(" ");
     if ((i%10) == 9)
