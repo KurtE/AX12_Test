@@ -7,10 +7,18 @@
 //============================================================================
 // Global Include files
 //=============================================================================
-
+//#define USE_BIOLOID_SERIAL
+// Default to BioloidSerial on Teensy
+#if defined(KINETISK)
+#define USE_BIOLOID_SERIAL
+#endif
+#ifdef USE_BIOLOID_SERIAL
 #include <ax12Serial.h>
 #include <BioloidSerial.h>
-
+#else
+#include <ax12.h>
+#include <BioloidController.h>
+#endif
 //=============================================================================
 // Options...
 //=============================================================================
@@ -110,8 +118,11 @@ const char* IKPinsNames[] = {
 //=============================================================================
 // Global objects
 /* IK Engine */
+#ifdef USE_BIOLOID_SERIAL
 BioloidControllerEx bioloid = BioloidControllerEx(); 
-//BioloidController bioloid = BioloidController(1000000);  // may use or not... may go direct to AX12// other globals.
+#else
+BioloidController bioloid = BioloidController(1000000);  // may use or not... may go direct to AX12// other globals.
+#endif
 word           g_wVoltage;
 char           g_aszCmdLine[80];
 uint8_t        g_iszCmdLine;
@@ -130,7 +141,9 @@ word          g_wServoGoalSpeed;
 // Setup 
 //====================================================================================================
 void setup() {
+#ifdef USE_BIOLOID_SERIAL
   while (!Serial && (millis() < 3000)) ;  // Give time for Teensy and other USB arduinos to create serial port
+#endif
   Serial.begin(38400);  // start off the serial port.  
 
   delay(250);
@@ -144,7 +157,9 @@ void setup() {
 #endif
   delay(250);
 
+#ifdef USE_BIOLOID_SERIAL
   bioloid.begin(1000000, &AX_BUS_UART, SERVO_DIRECTION_PIN);
+#endif
   bioloid.poseSize = NUM_SERVOS;
 
 #ifdef SERVO_POWER_ENABLE_PIN
