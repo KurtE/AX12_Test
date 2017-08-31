@@ -7,8 +7,9 @@
 //============================================================================
 // Global Include files
 //=============================================================================
-//#define USE_BIOLOID_SERIAL
+#define USE_BIOLOID_SERIAL
 // Default to BioloidSerial on Teensy
+
 #if defined(KINETISK)
 #define USE_BIOLOID_SERIAL
 #endif
@@ -33,13 +34,24 @@
 //#define SERVO_POWER_ENABLE_PIN 2
 
 
-// V0.3
-//#define SERVO_DIRECTION_PIN 2
-//#define SERVO_POWER_ENABLE_PIN 3
+
+// V0.3 T36
+#if defined(KINETISK)
+#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
+#define SERVO_DIRECTION_PIN 28
+#define SERVO_POWER_ENABLE_PIN 29
+#define SERVO_TX_PIN 26
+#define SERVO_RX_PIN  27
+#else 
+// V0.3 T32
+#define SERVO_DIRECTION_PIN 2
+#define SERVO_POWER_ENABLE_PIN 3
+#endif
+#endif
 
 #define AX_BUS_UART Serial1
 //#define VOLTAGE_ANALOG_PIN 0
-#define SOUND_PIN 1
+//#define SOUND_PIN 1
 #define SERVO1_SPECIAL  19     // We wish to reserve servo 1 so we can see servo reset
 
 //=============================================================================
@@ -158,6 +170,14 @@ void setup() {
   delay(250);
 
 #ifdef USE_BIOLOID_SERIAL
+  
+#ifdef SERVO_TX_PIN
+  AX_BUS_UART.setTX(SERVO_TX_PIN);
+#endif
+#ifdef SERVO_RX_PIN
+  AX_BUS_UART.setRX(SERVO_RX_PIN);
+#endif
+
   bioloid.begin(1000000, &AX_BUS_UART, SERVO_DIRECTION_PIN);
 #endif
   bioloid.poseSize = NUM_SERVOS;
@@ -454,7 +474,7 @@ void GetServoPositions(void) {
     Serial.print(" ");
     Serial.println(ax12GetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_RETURN_DELAY_TIME, 1), DEC);
 
-    if (w == 0xffff) {
+    if (w == (int)0xffff) {
       Serial.print("   Retry: ");
       w = ax12GetRegister(pgm_read_byte(&pgm_axdIDs[i]), AX_PRESENT_POSITION_L, 2 );
       Serial.println(w, DEC);
