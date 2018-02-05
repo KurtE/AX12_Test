@@ -126,6 +126,7 @@ void loop() {
   Serial.println("t - Toggle track Servos");
   Serial.println("h - hold [<sn>]");
   Serial.println("f - free [<sn>]");
+  Serial.println("S - Syncwrite all servos center");
   Serial.println("w - write <servo> <reg> <val> (<val2>...)\n\r");
   Serial.print(":");
   Serial.flush();  // make sure the complete set of prompts has been output...
@@ -182,7 +183,11 @@ void loop() {
         TimedMove3();
         break;
 #endif
-
+      case 's':
+      case 'S':
+        SyncwriteCenterServos();
+        break;
+        
       case 't':
       case 'T':
         g_fTrackServos = !g_fTrackServos;
@@ -340,6 +345,49 @@ void AllServosCenter(void) {
     }
   }
 }
+
+//=======================================================================================
+uint8_t packet[256];
+
+void SyncwriteCenterServos() {
+  // First lets setup to output a protocol 1 version...
+  uint8_t count_protocol1 = 0;
+  uint8_t count_protocol2 = 0;
+  uint8_t *pb = packet;
+  
+  for (int i = 0; i < 255; i++) {
+    if (g_servo_protocol[i] == SERVO_PROTOCOL1) {
+      count_protocol1++;
+      *pb++ = i;  // output servo number
+      *pb++ = 0xff;  // output the center position
+      *pb++ = 0x01;
+    } else if (g_servo_protocol[i] == SERVO_PROTOCOL2) {
+      count_protocol2++;
+    }
+  }
+  if (count_protocol1) {
+    Serial.printf("SW Count protocol1 %d\n", count_protocol1);
+    dxlP1SyncWrite(count_protocol1, AX_GOAL_POSITION_L, 2, packet);
+  }
+
+  if (count_protocol2) {
+    Serial.printf("SW Count protocol2 %d\n", count_protocol2);
+    pb = packet;
+    for (int i = 0; i < 255; i++) {
+      if (g_servo_protocol[i] == SERVO_PROTOCOL2) {
+        *pb++ = i;  // output servo number
+        *pb++ = 0xff;  // output the center position 
+        *pb++ = 0x07;  //
+        *pb++ = 0x00;  //
+        *pb++ = 0x00;  //
+      }
+    }
+    dxlP2SyncWrite(count_protocol2, DXL_X_GOAL_POSITION, 4, packet);
+  } 
+
+}
+
+
 
 //=======================================================================================
 void HoldOrFreeServos(byte fHold) {
