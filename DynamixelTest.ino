@@ -323,10 +323,10 @@ void FindServos(void) {
 //=======================================================================================
 void AllServosOff(void) {
   // Tell protocol 1 servos to turn off their Torque
-  ax12SetRegister(0xff, AX_TORQUE_ENABLE, 0x0);
+  ax12SetRegister(0xfe, AX_TORQUE_ENABLE, 0x0);
 
   // Lets tell all Protocol 2 servos to turn their torque off as well
-  dxlP2SetRegisters(0xff, DXL_X_TORQUE_ENABLE, 0x0, 1);
+  dxlP2SetRegisters(0xfe, DXL_X_TORQUE_ENABLE, 0x0, 1);
 }
 //=======================================================================================
 void AllServosCenter(void) {
