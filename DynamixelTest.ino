@@ -116,7 +116,7 @@ void loop() {
   Serial.println("0 - All Servos off");
   Serial.println("1 - All Servos center");
   Serial.println("2 - Set Servo position [<Servo>] <Position> [<Speed>]");
-//  Serial.println("3 - Set Servo Angle");
+  //  Serial.println("3 - Set Servo Angle");
   Serial.println("4 - Get Servo Positions");
   Serial.println("5 - Find All Servos");
   Serial.println("6 - Set Servo return delay time");
@@ -127,6 +127,7 @@ void loop() {
   Serial.println("h - hold [<sn>]");
   Serial.println("f - free [<sn>]");
   Serial.println("S - Syncwrite all servos center");
+  Serial.println("r - Sync Read all protocol 2 servo positions");
   Serial.println("w - write <servo> <reg> <val> (<val2>...)\n\r");
   Serial.print(":");
   Serial.flush();  // make sure the complete set of prompts has been output...
@@ -146,8 +147,8 @@ void loop() {
       case '2':
         SetServoPosition();
         break;
-  //    case '3':
-  //      break;
+      //    case '3':
+      //      break;
       case '4':
         GetServoPositions();
         break;
@@ -183,11 +184,16 @@ void loop() {
         TimedMove3();
         break;
 #endif
+      case 'r':
+      case 'R':
+        SyncReadP2Servos();
+        break;
+
       case 's':
       case 'S':
         SyncwriteCenterServos();
         break;
-        
+
       case 't':
       case 'T':
         g_fTrackServos = !g_fTrackServos;
@@ -209,7 +215,7 @@ void loop() {
 
 //====================================================================================================
 void PrintServoVoltage() {
-  // Lets try reading in the current voltage for the next servo we found... 
+  // Lets try reading in the current voltage for the next servo we found...
   if (g_count_servos_found == 0) return; // no servos found
   g_servo_index_voltage++;    // will wrap around...
   uint8_t sanity_test_count = 0;
@@ -217,7 +223,7 @@ void PrintServoVoltage() {
     g_servo_index_voltage++;
     sanity_test_count--;
     if (sanity_test_count == 0) return;
-  } 
+  }
   word wNewVoltage;
   if (g_servo_protocol[g_servo_index_voltage] == SERVO_PROTOCOL1) {
     wNewVoltage = ax12GetRegister(g_servo_index_voltage, AX_PRESENT_VOLTAGE, 1);
@@ -354,7 +360,7 @@ void SyncwriteCenterServos() {
   uint8_t count_protocol1 = 0;
   uint8_t count_protocol2 = 0;
   uint8_t *pb = packet;
-  
+
   for (int i = 0; i < 255; i++) {
     if (g_servo_protocol[i] == SERVO_PROTOCOL1) {
       count_protocol1++;
@@ -376,15 +382,49 @@ void SyncwriteCenterServos() {
     for (int i = 0; i < 255; i++) {
       if (g_servo_protocol[i] == SERVO_PROTOCOL2) {
         *pb++ = i;  // output servo number
-        *pb++ = 0xff;  // output the center position 
+        *pb++ = 0xff;  // output the center position
         *pb++ = 0x07;  //
         *pb++ = 0x00;  //
         *pb++ = 0x00;  //
       }
     }
     dxlP2SyncWrite(count_protocol2, DXL_X_GOAL_POSITION, 4, packet);
-  } 
+  }
 
+}
+//=======================================================================================
+void SyncReadP2Servos() {
+  // First lets setup to output a protocol 1 version...
+  uint8_t count_protocol2 = 0;
+  uint8_t *pb = packet;
+  // Note this only supports protocol 2.
+  Serial.printf("SyncRead Test (only Protocol 2 servos) %d\n", count_protocol2);
+  pb = packet;
+  for (int i = 0; i < 255; i++) {
+    if (g_servo_protocol[i] == SERVO_PROTOCOL2) {
+      *pb++ = i;  // output servo number
+      count_protocol2++;  // could deduce from pb...
+    }
+  }
+  if (count_protocol2) {
+    // Queue up the request
+    dxlP2SyncRead(count_protocol2, DXL_X_PRESENT_POSITION, 4, packet);
+    for (int i = 0; i < count_protocol2; i++) {
+      // Now try to get the multiple responses.
+      int packet_length = dxlP2ReadPacket();
+      if (packet_length > 0) {
+        // look at ax_rx_buffer for the data. 
+        Serial.print(packet_length, DEC);
+        Serial.print("- ID: ");
+        Serial.print(ax_rx_buffer[4], DEC);  // Extract the ID
+        Serial.print(" POS: ");
+        uint32_t pos = ax_rx_buffer[9] | ((uint32_t)ax_rx_buffer[10] << 8)| 
+            ((uint32_t)ax_rx_buffer[11] << 16)| ((uint32_t)ax_rx_buffer[12] << 24);
+        Serial.println(pos, DEC);
+      }
+    }
+    Serial.println();
+  }
 }
 
 
@@ -461,18 +501,18 @@ void SetServoPosition(void) {
 //=======================================================================================
 bool IsValidServo(uint8_t servo_id) {
   if (g_servo_protocol[servo_id])
-    return true;  // was found before. 
+    return true;  // was found before.
 
   // First lets try Protocol1 ping
   if (dxlP1Ping(servo_id)) {
     g_servo_protocol[servo_id] = SERVO_PROTOCOL1;
     g_count_servos_found++;
-    return true; 
-  } 
+    return true;
+  }
   if (dxlP2Ping(servo_id)) {
     g_servo_protocol[servo_id] = SERVO_PROTOCOL2;
     g_count_servos_found++;
-    return true; 
+    return true;
   }
   return false;
 }
@@ -578,10 +618,13 @@ void GetServoPositions(void) {
         }
       } else if (g_servo_protocol[i] == SERVO_PROTOCOL2) {
         w = dxlP2GetRegisters(i, DXL_X_PRESENT_POSITION, 4 );
+        int error = dxlGetLastError();
         ulDelta = micros() - ulBefore;
         Serial.print(w, DEC);
         Serial.print(" ");
         Serial.print(ulDelta, DEC);
+        Serial.print(" E: ");
+        Serial.print(error,HEX);
         Serial.print(" ");
         Serial.println(dxlP2GetRegisters(i, DXL_X_RETURN_DELAY_TIME, 1), DEC);
       }
@@ -723,8 +766,8 @@ void WriteServoValues() {
       if (ax12ReadPacket(6)) // get the response...
         Serial.println(" Success");
       else
-        Serial.println(" Failed");  
-      
+        Serial.println(" Failed");
+
     } else if (g_servo_protocol[wID] == SERVO_PROTOCOL2) {
       dxlP2SetRegisters(wID, wReg, wVal);
       int resp_packet_size = dxlP2ReadPacket();  // get the response...
